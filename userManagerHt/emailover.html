@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>login</title>
+    <link rel="stylesheet" href="layui/css/layui.css">
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body class="body" >
+<script src="layui/layui.js"></script>
+<!--<script src="../../js/index.js"></script>-->
+<script src="js/jquery-3.3.1.js"></script>
+
+<div >
+ 
+    <div class="right2">
+        <div style="margin: 2% 0 0 42%"> 
+            <h2 >邮件轰炸计数<span id="nums">1</span></h2>
+            <!-- <h2 id="nums">1</h2> -->
+        </div>
+
+        <form class="layui-form" action="" lay-filter="example" style="margin: 5% 5% 20% 2%;">
+            <div class="layui-form-item" >
+                <label class="layui-form-label">我的邮箱</label>
+                <div class="layui-input-block">
+                    <input type="text" id="username" name="userName" lay-verify="username" autocomplete="off" placeholder="请输入邮箱" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">目标邮箱</label>
+                <div class="layui-input-block">
+                    <input type="text" id="toUserName" name="toUserName" lay-verify="toUserName" autocomplete="off" placeholder="请输入邮箱" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">标题</label>
+                <div class="layui-input-block">
+                    <input type="text" id="title" name="title" lay-verify="title" autocomplete="off" placeholder="请输入邮件标题" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">内容</label>
+                <div class="layui-input-block">
+                    <input type="text" id="talkFont" name="talkFont" lay-verify="talkFont" autocomplete="off" placeholder="请输入想说的话" class="layui-input">
+                </div>
+            </div>
+             <div class="layui-form-item">
+                <label class="layui-form-label">时间间隔</label>
+                <div class="layui-input-block">
+                    <input type="text" id="time" name="time" lay-verify="time" autocomplete="off" placeholder="请输入时间间隔（秒）" class="layui-input">
+                </div>
+            </div>
+             <div class="layui-form-item">
+                <label class="layui-form-label">SMTP授权码</label>
+                <div class="layui-input-block">
+                    <input type="text" id="smtpNum" name="smtpNum" lay-verify="smtpNum" autocomplete="off" placeholder="请输入授权码" class="layui-input">
+                </div>
+            </div>
+            <div style="margin-top: 5%">
+                <button type="submit" id="st" class="layui-btn" lay-submit="" lay-filter="start" style="margin-left: 20%">开始</button>
+                <button type="button" onclick="stopem()" class="layui-btn"  style="margin-left: 35%">停止</button><br><br><br>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+<script type="text/javascript">
+    var timer = null;
+    var sec = 0;
+    layui.use(['form', 'layedit', 'laydate'], function(){
+        var form = layui.form
+            ,layer = layui.layer
+            ,layedit = layui.layedit
+            ,laydate = layui.laydate;
+
+        //日期
+        laydate.render({
+            elem: '#date'
+        });
+        laydate.render({
+            elem: '#date1'
+        });
+
+        //创建一个编辑器
+        var editIndex = layedit.build('LAY_demo_editor');
+
+        //自定义验证规则
+        form.verify({
+            content: function(value){
+                layedit.sync(editIndex);
+
+            }
+        });
+        form.on('submit(start)', function (data1) {
+           
+            login(data1);
+            // layer.alert(JSON.stringify(data1.field), {
+            //     title: '最终的提交信息'
+            // })
+            // Console.log(data1);
+            return false;
+        });
+
+
+    });
+    layui.use('layer',function(){
+        if(window.sessionStorage.getItem("loginstatus")){
+            layer.alert("您还未登录！")
+            window.sessionStorage.removeItem("loginstatus");
+        }
+    });
+   
+    function login(data1){
+        var st =  document.getElementById("st");
+        $.ajax({
+            url:'http://192.168.1.2:8001/goEmail',
+            type:'post',
+            dataType:'text',
+            data:{
+                //监听的内容有哪些,你的登陆界面上用户输入的有哪些，就监听那些
+                userName:data1.field.userName.valueOf(),
+                toUserName:data1.field.toUserName.valueOf(),
+                talkFont:data1.field.talkFont.valueOf(),
+                smtpNum:data1.field.smtpNum.valueOf(),
+                title:data1.field.title.valueOf(),
+                time:data1.field.time.valueOf()
+            },  
+            beforeSend:function(){
+                //弹出的lodinng层
+                layer.load(2,{
+                    shade:[0.5,"#333"]
+                });
+            },         
+            success:function(res){
+                if(res == "true"){
+                    layer.msg("开始发送")
+                   st.setAttribute("disabled",true);
+                   clearInterval(timer);
+                    timer = setInterval(function(){
+                        ti();
+                    }, 1000);
+                    
+                    // realTimeClData = setInterval(realTimeCl, 60000);
+                }
+
+            },
+            error:function(){
+                //用户输入与接口内容不对应，显示文字
+                layer.msg("网络繁忙，访问失败")
+            },
+            complete:function(){
+                //关掉loading
+                layer.closeAll("loading")
+            }
+        })
+
+    }
+    function ti(){
+         var nums =  document.getElementById("nums");
+         $.ajax({
+            url:'http://192.168.1.2:8001/getI',
+            type:'get',
+            dataType:'text',          
+            success:function(res){                
+                nums.innerHTML = res;
+                console.log(sec);
+            },
+            error:function(){
+                //用户输入与接口内容不对应，显示文字
+                layer.msg("网络繁忙，访问失败")
+            },
+            complete:function(){
+                //关掉loading
+                layer.closeAll("loading")
+            }
+        })
+         
+    }
+    // setInterval(test, 500);
+    function stopem(){
+        var st =  document.getElementById("st");
+        if(st.disabled){
+            st.disabled = false;
+        }else{
+            alert("!!")
+        }
+        // st.disabled = false;
+        $.ajax({
+            url:'http://192.168.1.2:8001/stop',
+            type:'get',
+            dataType:'text',          
+            success:function(res){
+                if(res == "true"){
+                    console.log("true");
+                    clearInterval(timer); 
+                    alert("已停止")
+
+                }else{
+                    console.log("false");
+
+                }
+
+            },
+            error:function(){
+                //用户输入与接口内容不对应，显示文字
+                layer.msg("网络繁忙，访问失败")
+            },
+            complete:function(){
+                //关掉loading
+                layer.closeAll("loading")
+            }
+        })
+
+    }
+
+
+</script>
+</body>
+</html>
